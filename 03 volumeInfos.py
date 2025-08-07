@@ -44,10 +44,11 @@ transcript_files = [
 
 for fname in tqdm(transcript_files, desc="📁 Processing transcripts"):
     full_path = os.path.join(TRANSCRIPT_FOLDER, fname)
+    print(f"🔍 Checking: {full_path}")
     with open(full_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    if data.get(AUDIO_TAG) is True:
+    if data.get(AUDIO_TAG) == "done":
         continue  # Already tagged
 
     source = data.get("source_path")
@@ -58,11 +59,10 @@ for fname in tqdm(transcript_files, desc="📁 Processing transcripts"):
     if not segments:
         continue
     
-    data[AUDIO_TAG] = True
+    data[AUDIO_TAG] = "tried"
     
     with open(full_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    continue
 
     temp_wav = "temp_audio.wav"
 
@@ -87,3 +87,9 @@ for fname in tqdm(transcript_files, desc="📁 Processing transcripts"):
             seg["audio_level"] = float(level)
             updated = True
             print(f"📊 [{fname}] Segment {i}: {start:.2f} → {end:.2f} = {level:.2f} dB")
+
+    data[AUDIO_TAG] = "done"
+
+    if updated:
+        with open(full_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)

@@ -39,6 +39,7 @@ for fname in tqdm(os.listdir(TRANSCRIPT_FOLDER), desc="🖼️ Processing image 
         continue
 
     json_path = os.path.join(TRANSCRIPT_FOLDER, fname)
+    print(f"🔍 Checking: {fname}")
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
