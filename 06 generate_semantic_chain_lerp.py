@@ -1,3 +1,4 @@
+
 # use version 3.10
 
 import os
@@ -7,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from datetime import datetime
 from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
 
 TRANSCRIPT_FOLDER = "D:/project/archiver/prog/automontage/transcripts"
 INDEX_FILE = os.path.join(TRANSCRIPT_FOLDER, "000_index_all_files.json")
@@ -21,6 +23,11 @@ USE_RANDOM_VECTORS = False
 
 USE_TEXT = True
 USE_IMAGE = True
+
+START_PHRASE = "C'est absolument vrai!" # None <- to skip this
+END_PHRASE = "C'est totalement faux!"   # None <- to skip this
+MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+model = SentenceTransformer(MODEL_NAME) if (START_PHRASE or END_PHRASE) else None
 
 ALLOWED_MODELS = {"small", "medium", "large"}
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -94,8 +101,8 @@ def compute_similarities(vec_text_target, vec_img_target, segments):
                 print(f"❌ Inconsistent image vector shapes: {shapes}")
             else:
                 image_vectors = np.stack(valid_img)
-                print(f"🔍 Target image vector shape: {vec_img_target.shape}")
-                print(f"🔍 First image in pool shape: {image_vectors[0].shape}")                
+                # print(f"🔍 Target image vector shape: {vec_img_target.shape}")
+                # print(f"🔍 First image in pool shape: {image_vectors[0].shape}")                
                 sim_img_full = cosine_similarity(vec_img_target.reshape(1, -1), image_vectors)[0]
                 j = 0
                 for i, s in enumerate(segments):
@@ -119,13 +126,25 @@ def compute_similarities(vec_text_target, vec_img_target, segments):
 
     return np.array(sims), sim_text, sim_image
 
-def generate_chain(all_segments, length):
+def find_closest_segment_by_phrase(segments, phrase):
+    if model is None or not phrase:
+        return None
+    valid = [s for s in segments if s["text_vector"] is not None]
+    if not valid:
+        return None
+    vec = model.encode([phrase], normalize_embeddings=True)[0]
+    vectors = np.stack([s["text_vector"] for s in valid])
+    sims = cosine_similarity(vec.reshape(1, -1), vectors)[0]
+    best_idx = int(np.argmax(sims))
+    return valid[best_idx]
+
+def generate_chain(all_segments, length, phrase_start=None, phrase_end=None):
     if len(all_segments) < length + 2:
         print("❌ Not enough valid segments.")
         return []
 
     if USE_RANDOM_VECTORS:
-        seg_start = random.choice(all_segments)
+        seg_start = find_closest_segment_by_phrase(all_segments, phrase_start) or random.choice(all_segments)
 
         # Random end vector must match dimensions
         vec_start_text = seg_start["text_vector"] if USE_TEXT and seg_start["text_vector"] is not None else None
@@ -136,7 +155,11 @@ def generate_chain(all_segments, length):
 
         seg_end = {"text": "[Random End]", "start": 0.0, "stop": 0.0, "url": "[None]"}
     else:
-        seg_start, seg_end = random.sample(all_segments, 2)
+        seg_start = find_closest_segment_by_phrase(all_segments, phrase_start) or random.choice(all_segments)
+        seg_end = find_closest_segment_by_phrase(all_segments, phrase_end) or random.choice(all_segments)
+        if seg_end is seg_start:
+            candidates = [s for s in all_segments if s is not seg_start]
+            seg_end = random.choice(candidates)
         vec_start_text = seg_start["text_vector"] if USE_TEXT else None
         vec_end_text   = seg_end["text_vector"]   if USE_TEXT else None
         vec_start_img  = seg_start["image_vector"] if USE_IMAGE else None
@@ -208,7 +231,7 @@ def main():
         print("❌ Not enough segments to build a chain.")
         return
 
-    chain = generate_chain(segments, CHAIN_LENGTH)
+    chain = generate_chain(segments, CHAIN_LENGTH, START_PHRASE, END_PHRASE)
     if chain:
         save_chain(chain)
     else:
