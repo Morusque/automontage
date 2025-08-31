@@ -57,33 +57,40 @@ for fname in tqdm(os.listdir(TRANSCRIPT_FOLDER), desc="🖼️ Processing image 
     updated = False
     total_attempts = 0
     total_success = 0
+    original_tag = data.get(IMAGE_VECTOR_TAG)
 
-    for seg in segments:
-        if IMAGE_VECTOR_KEY in seg:
-            continue
-        start, end = seg.get("start"), seg.get("end")
-        if start is None or end is None or end <= start:
-            continue
+    all_segments_have_vector = segments and all(IMAGE_VECTOR_KEY in seg for seg in segments)
 
-        total_attempts += 1
-        middle = (start + end) / 2.0
-        try:
-            extract_frame(source, middle, temp_img)
-            vec = image_to_vector(temp_img)
-            seg[IMAGE_VECTOR_KEY] = [round(float(x), 6) for x in vec]
-            updated = True
-            total_success += 1
-        except Exception as e:
-            print(f"⚠️ Failed to process frame at {middle:.2f}s in {fname}: {e}")
+    if not all_segments_have_vector:
+        for seg in segments:
+            if IMAGE_VECTOR_KEY in seg:
+                continue
+            start, end = seg.get("start"), seg.get("end")
+            if start is None or end is None or end <= start:
+                continue
 
-    if total_success > 0:
+            total_attempts += 1
+            middle = (start + end) / 2.0
+            try:
+                extract_frame(source, middle, temp_img)
+                vec = image_to_vector(temp_img)
+                seg[IMAGE_VECTOR_KEY] = [round(float(x), 6) for x in vec]
+                updated = True
+                total_success += 1
+            except Exception as e:
+                print(f"⚠️ Failed to process frame at {middle:.2f}s in {fname}: {e}")
+
+    if all_segments_have_vector or total_success > 0:
         data[IMAGE_VECTOR_TAG] = True
-        print(f"✅ {fname}: {total_success}/{total_attempts} image vectors extracted.")
+        if all_segments_have_vector:
+            print(f"✅ {fname}: all image vectors already present.")
+        elif total_success > 0:
+            print(f"✅ {fname}: {total_success}/{total_attempts} image vectors extracted.")
     elif total_attempts > 0:
         data[IMAGE_VECTOR_TAG] = "failed"
         print(f"⚠️ {fname}: All image vector attempts failed.")
 
-    if total_attempts > 0:
+    if updated or data.get(IMAGE_VECTOR_TAG) != original_tag:
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 

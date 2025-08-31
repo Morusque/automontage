@@ -12,12 +12,29 @@ import re
 def normalize_path(p):
     return os.path.normpath(p).replace("\\", "/")
 
-def load_priority_urls(filepath="D:/project/archiver/prog/automontage/priority_movies.txt"):
-    if not os.path.isfile(filepath):
-        return set()
-    with open(filepath, "r", encoding="utf-8") as f:
-        return set(normalize_path(line.strip()) for line in f if line.strip())
+PRIORITY_FILE = "D:/project/archiver/prog/automontage/priority_movies.txt"
 
+def load_priority_urls(filepath=PRIORITY_FILE):
+    if not os.path.isfile(filepath):
+        return []
+    paths = []
+    seen = set()
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            norm = normalize_path(line)
+            if norm not in seen:
+                paths.append(norm)
+                seen.add(norm)
+    return paths
+
+def save_priority_urls(paths, filepath=PRIORITY_FILE):
+    with open(filepath, "w", encoding="utf-8") as f:
+        for p in paths:
+            f.write(normalize_path(p) + "\n")
+            
 SOURCE_FOLDERS = ["D:/recup/current/films", "E:/", "F:/"]
 TRANSCRIPT_FOLDER = "D:/project/archiver/prog/automontage/transcripts/"
 INDEX_FILE = os.path.join(TRANSCRIPT_FOLDER, "000_index_all_files.json")
@@ -31,7 +48,7 @@ else:
     index = {}
 
 WHISPER_MODEL = "medium"
-model = whisper.load_model(WHISPER_MODEL)
+model = whisper.load_model(WHISPER_MODEL, device="cuda")
 
 video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv',
               '.webm', '.mpg', '.mpeg', '.3gp', '.m4v')
@@ -50,8 +67,13 @@ indexed_paths = set(normalize_path(p) for p in index.values())
 
 # Split priority and others
 priority_paths = load_priority_urls()
-priority_videos = [p for p in all_videos if p in priority_paths and p not in indexed_paths]
-other_videos = [p for p in all_videos if p not in priority_paths and p not in indexed_paths]
+original_len = len(priority_paths)
+priority_paths = [p for p in priority_paths if p not in indexed_paths]
+if len(priority_paths) < original_len:
+    save_priority_urls(priority_paths)
+priority_videos = [p for p in priority_paths if p in all_videos]
+priority_set = set(priority_paths)
+other_videos = [p for p in all_videos if p not in priority_set and p not in indexed_paths]
 random.shuffle(other_videos)
 
 def parse_srt(srt_text):
@@ -133,16 +155,21 @@ def transcribe_video(path):
 
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{now}] ✅ Saved: {safe_name}.json")
+        return True
 
     except Exception as e:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{now}] ❌ Error processing {path}: {e}")
+        return False        
 
 # Process in priority order
 print(f"🎯 Found {len(priority_videos)} prioritized videos to process.")
 for path in tqdm(priority_videos, desc="🎙 Processing prioritized"):
-    transcribe_video(path)
-
+    if transcribe_video(path):
+        if path in priority_paths:
+            priority_paths.remove(path)
+            save_priority_urls(priority_paths)
+            
 # Then process the rest
 for path in tqdm(other_videos, desc="🎙 Processing remaining"):
     transcribe_video(path)

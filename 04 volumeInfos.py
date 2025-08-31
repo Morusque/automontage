@@ -90,6 +90,5 @@ for fname in tqdm(transcript_files, desc="📁 Processing transcripts"):
 
     data[AUDIO_TAG] = "done"
 
-    if updated:
-        with open(full_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    with open(full_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
