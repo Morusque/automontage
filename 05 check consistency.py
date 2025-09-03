@@ -6,6 +6,22 @@ import json
 TRANSCRIPT_FOLDER = "D:/project/archiver/prog/automontage/transcripts"
 INDEX_FILE = os.path.join(TRANSCRIPT_FOLDER, "000_index_all_files.json")
 
+print(f"started")
+
+bad = []
+for fname in os.listdir(TRANSCRIPT_FOLDER):
+    print(fname)
+    if not fname.endswith(".json") or fname.startswith("000_"):
+        continue
+    p = os.path.join(TRANSCRIPT_FOLDER, fname)
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            json.load(f)
+    except json.JSONDecodeError as e:
+        print("BAD:", p, "->", e)
+        bad.append(p)
+print("\nTotal bad files:", len(bad))
+
 def normalize_path(p):
     return os.path.normpath(p).replace("\\", "/")
 

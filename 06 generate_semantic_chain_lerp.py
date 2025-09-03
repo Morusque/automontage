@@ -24,8 +24,8 @@ USE_RANDOM_VECTORS = False
 USE_TEXT = True
 USE_IMAGE = True
 
-START_PHRASE = "Les robots sont méchants." # None <- to skip this
-END_PHRASE = "Je préfère les humains."   # None <- to skip this
+START_PHRASE = "C'est la terrible maladie." # None <- to skip this
+END_PHRASE = "Je suis malade."   # None <- to skip this
 MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 model = SentenceTransformer(MODEL_NAME) if (START_PHRASE or END_PHRASE) else None
 
