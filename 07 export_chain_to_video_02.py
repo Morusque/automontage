@@ -10,7 +10,7 @@ from moviepy.audio.fx.volumex import volumex
 from tqdm import tqdm
 
 # === Configuration ===
-FILE_NAME = "chain_directional_20250903_202214"
+FILE_NAME = "chain_directional_20250906_201832"
 INPUT_JSON = f"D:/project/archiver/prog/automontage/semantic_chains/{FILE_NAME}.json"
 OUTPUT_VIDEO = f"D:/project/archiver/prog/automontage/exports/{FILE_NAME}_semantic_montage.mp4"
 

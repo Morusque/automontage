@@ -1,5 +1,23 @@
 # Use Python 3.12.3
 
+# --- GPU sanity check ---
+import torch
+
+def get_device():
+    has_cuda = torch.cuda.is_available()
+    print(f"[torch] cuda.is_available = {has_cuda}")
+    if has_cuda:
+        try:
+            name = torch.cuda.get_device_name(0)
+            cc = torch.cuda.get_device_capability(0)
+            print(f"[torch] device 0 = {name}, CC={cc}")
+        except Exception as e:
+            print(f"[torch] ⚠️ Could not query device name: {e}")
+    return "cuda" if has_cuda else "cpu"
+
+DEVICE = get_device()
+FP16 = (DEVICE == "cuda")
+
 import os
 import json
 import whisper
@@ -48,7 +66,7 @@ else:
     index = {}
 
 WHISPER_MODEL = "medium"
-model = whisper.load_model(WHISPER_MODEL, device="cuda")
+model = whisper.load_model(WHISPER_MODEL, device=DEVICE)
 
 video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv',
               '.webm', '.mpg', '.mpeg', '.3gp', '.m4v')
@@ -141,7 +159,7 @@ def transcribe_video(path):
             print(f"✅ Used subtitles for {basename}")
         else:
             print(f"🧠 Whispering {basename}...")
-            result = whisper.transcribe(model, path, language=None)
+            result = whisper.transcribe(model, path, language=None, fp16=FP16)
             result["source_path"] = path
             result["whisper_model"] = WHISPER_MODEL
             result["transcribed_at"] = datetime.datetime.now().isoformat()
